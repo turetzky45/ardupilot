@@ -109,6 +109,14 @@ public:
 
     // var_info for holding Parameter information
     static const struct AP_Param::GroupInfo        var_info[];
+    // Custom motor control methods
+    void enable_custom_motor_control();
+    void disable_custom_motor_control();
+    void set_custom_motor_pwm(uint8_t motor_index, int16_t pwm);
+
+    // Custom motor control variables
+    bool _custom_motor_control_enabled = true;
+    int16_t _custom_pwm[AP_MOTORS_MAX_NUM_MOTORS] = {0};
 
 protected:
 

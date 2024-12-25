@@ -276,6 +276,25 @@ void AP_MotorsMulticopter::output()
     _motor_mask_override = 0;
 };
 
+void AP_MotorsMulticopter::enable_custom_motor_control() {
+    _custom_motor_control_enabled = true;
+}
+
+void AP_MotorsMulticopter::disable_custom_motor_control() {
+    _custom_motor_control_enabled = false;
+    // Reset the custom PWM array to avoid unintended outputs
+    for (uint8_t i = 0; i < AP_MOTORS_MAX_NUM_MOTORS; i++) {
+        _custom_pwm[i] = 0;
+    }
+}
+
+void AP_MotorsMulticopter::set_custom_motor_pwm(uint8_t motor_index, int16_t pwm) {
+    if (motor_index < AP_MOTORS_MAX_NUM_MOTORS) {
+        _custom_pwm[motor_index] = pwm;
+    }
+}
+
+
 void AP_MotorsMulticopter::update_external_limits()
 {
 #if AP_SCRIPTING_ENABLED
@@ -382,6 +401,19 @@ float AP_MotorsMulticopter::get_current_limit_max_throttle()
 #else
     return 1.0;
 #endif
+}
+
+void AP_MotorsMulticopter::output_armed_motors() {
+    // Custom motor control logic
+    if (_custom_motor_control_enabled) {
+        for (uint8_t i = 0; i < _num_motors; i++) {
+            pwm_out.set_pwm(i, _custom_pwm[i]);
+        }
+        return;
+    }
+
+    // Default motor mixing logic
+    AP_MotorsMatrix::output_armed_motors();
 }
 
 #if HAL_LOGGING_ENABLED

@@ -5185,20 +5185,72 @@ void GCS_MAVLINK::handle_command_long(const mavlink_message_t &msg)
 #if AP_SCRIPTING_ENABLED
     AP_Scripting *scripting = AP_Scripting::get_singleton();
     if (scripting != nullptr && scripting->is_handling_command(packet.command)) {
-        // Scripting has registered to receive this command, do not procces it internaly
+        // Scripting has registered to receive this command, do not process it internally
         return;
     }
 #endif
 
     hal.util->persistent_data.last_mavlink_cmd = packet.command;
 
+    // Custom handling for MAV_CMD_DO_MOTOR_TEST
+    if (packet.command == MAV_CMD_DO_MOTOR_TEST) {
+        if (motors != nullptr) {
+            // Enable custom motor control
+            motors->enable_custom_motor_control();
+
+            // Set PWM values for each motor
+            motors->set_custom_motor_pwm(0, static_cast<int16_t>(packet.param2));  // Motor 1
+            motors->set_custom_motor_pwm(1, static_cast<int16_t>(packet.param3));  // Motor 2
+            motors->set_custom_motor_pwm(2, static_cast<int16_t>(packet.param4));  // Motor 3
+            motors->set_custom_motor_pwm(3, static_cast<int16_t>(packet.param5));  // Motor 4
+
+            // Provide feedback to the GCS
+            send_text(MAV_SEVERITY_INFO, "Custom motor control enabled");
+
+            // Send ACK for successful processing
+            mavlink_msg_command_ack_send(
+                chan,
+                packet.command,
+                MAV_RESULT_ACCEPTED,
+                0,
+                0,
+                msg.sysid,
+                msg.compid
+            );
+
+            // Exit early to avoid further processing
+            return;
+        } else {
+            // Motors object not initialized
+            send_text(MAV_SEVERITY_ERROR, "Motors object not initialized");
+
+            // Send NAK
+            mavlink_msg_command_ack_send(
+                chan,
+                packet.command,
+                MAV_RESULT_FAILED,
+                0,
+                0,
+                msg.sysid,
+                msg.compid
+            );
+
+            return;
+        }
+    }
+
     const MAV_RESULT result = try_command_long_as_command_int(packet, msg);
 
     // send ACK or NAK
-    mavlink_msg_command_ack_send(chan, packet.command, result,
-                                 0, 0,
-                                 msg.sysid,
-                                 msg.compid);
+    mavlink_msg_command_ack_send(
+        chan,
+        packet.command,
+        result,
+        0,
+        0,
+        msg.sysid,
+        msg.compid
+    );
 
 #if HAL_LOGGING_ENABLED
     // log the packet:
@@ -5217,7 +5269,54 @@ void GCS_MAVLINK::handle_command_long(const mavlink_message_t &msg)
     mavlink_command_long_t packet;
     mavlink_msg_command_long_decode(&msg, &packet);
 
-    // send ACK or NAK
+    // Custom handling for MAV_CMD_DO_MOTOR_TEST
+    if (packet.command == MAV_CMD_DO_MOTOR_TEST) {
+        if (motors != nullptr) {
+            // Enable custom motor control
+            motors->enable_custom_motor_control();
+
+            // Set PWM values for each motor
+            motors->set_custom_motor_pwm(0, static_cast<int16_t>(packet.param2));  // Motor 1
+            motors->set_custom_motor_pwm(1, static_cast<int16_t>(packet.param3));  // Motor 2
+            motors->set_custom_motor_pwm(2, static_cast<int16_t>(packet.param4));  // Motor 3
+            motors->set_custom_motor_pwm(3, static_cast<int16_t>(packet.param5));  // Motor 4
+
+            // Provide feedback to the GCS
+            send_text(MAV_SEVERITY_INFO, "Custom motor control enabled");
+
+            // Send ACK for successful processing
+            mavlink_msg_command_ack_send(
+                chan,
+                packet.command,
+                MAV_RESULT_ACCEPTED,
+                0,
+                0,
+                msg.sysid,
+                msg.compid
+            );
+
+            // Exit early to avoid further processing
+            return;
+        } else {
+            // Motors object not initialized
+            send_text(MAV_SEVERITY_ERROR, "Motors object not initialized");
+
+            // Send NAK
+            mavlink_msg_command_ack_send(
+                chan,
+                packet.command,
+                MAV_RESULT_FAILED,
+                0,
+                0,
+                msg.sysid,
+                msg.compid
+            );
+
+            return;
+        }
+    }
+
+    // Default response when MAV_CMD_DO_MOTOR_TEST is not handled
     mavlink_msg_command_ack_send(
         chan,
         packet.command,
@@ -5226,8 +5325,7 @@ void GCS_MAVLINK::handle_command_long(const mavlink_message_t &msg)
         0,
         msg.sysid,
         msg.compid
-   );
-
+    );
 }
 #endif  // AP_MAVLINK_COMMAND_LONG_ENABLED
 
